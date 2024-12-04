@@ -5,7 +5,6 @@ from scipy.special import erfc
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# Hàm tính toán khi người dùng nhấn nút "Tính toán"
 def calculate():
     try:
         # Lấy giá trị từ các trường nhập liệu
