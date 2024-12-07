@@ -10,14 +10,14 @@ def calculate():
         # Lấy giá trị từ các trường nhập liệu
         a = float(entry_lat.get())  # Vĩ độ
         b = float(entry_lon.get())  # Kinh độ
-        P_tx = float(entry_power.get())  # Công suất
+        P_tx = float(entry_power.get())  # Công suất (W)
 
         # Hằng số
         R_E = 6378  # Bán kính Trái Đất (km)
         h = 35786   # Khoảng cách từ Trái Đất đến vệ tinh (km)
         f = 6       # Tần số (GHz)
         R_bit = 8e6  # Tốc độ bit (8 Mbps)
-        Ha = 0.1     # Mực nước biển (m)
+        Ha = 0.1     # Mực nước biển (km)
         H_rain = 5   # suy hao do mưa (km)
         alpha = 3    # Hệ số nhiễu do mưa (dB/km)
         eta = 0.6    # Hiệu suất anten
@@ -25,9 +25,12 @@ def calculate():
         D_rx = 4     # Đường kính anten nhận (m)
         L_tx = 1     # Mất mát truyền (dB)
         L_rx = 1     # Mất mát nhận (dB)
-        T = 900      # Nhiệt độ (K)
+        T = 290      # Nhiệt độ (K)
         k = 1.38e-23 # Hằng số Boltzmann (J/K)
         M = 4        # Mô-đun (4QAM)
+    
+        # băng thông
+        B = R_bit / np.log2(M)        
 
         # Tính toán cosine của góc
         phi_cos = np.cos(np.radians(a)) * np.cos(np.radians(b - 132))
@@ -58,10 +61,10 @@ def calculate():
         EIRP = 10 * np.log10(P_tx) + 10 * np.log10(G_tx) + L_tx
 
         # Công suất nhận tại vệ tinh (P_rx)
-        P_rx = P_tx + 10 * np.log10(G_tx) + 10 * np.log10(G_rx) - L_total
+        P_rx = 10 * np.log10(P_tx) + 10 * np.log10(G_tx) + 10 * np.log10(G_rx) - L_total
 
         # Công suất nhiễu (Pn)
-        P_N = 10 * np.log10(k * T)
+        P_N = 10 * np.log10(k * T* B)
 
         # Tỷ lệ mang trên nhiễu (C/N) và tỷ lệ mang trên mật độ nhiễu (C/N0)
         C_N = P_rx - P_N
@@ -76,7 +79,8 @@ def calculate():
         Góc ngẩng (theta) = {theta:.4f} deg
         Tăng ích anten phát G_tx = {10 * np.log10(G_tx):.4f} dB
         Tăng ích anten thu G_rx = {10 * np.log10(G_rx):.4f} dB
-        Công suất nhận từ vệ tinh (P_rx) = {10 * np.log10(P_rx):.4f} dBW
+        Công suất bức xạ đẳng hướng tương đương (EIRP) = {EIRP:.4f} dBW 
+        Công suất nhận từ vệ tinh (P_rx) = {P_rx:.4f} dBW
         Công suất (Pn) = {P_N:.4f} dBW
         Tổng tỉ lệ tín hiệu trên nhiễu (C/N) = {C_N:.4f} dB-Hz
         Tổng tỉ lệ tín hiệu trên mật độ nhiễu (C/N0) = {C_N0:.4f} dB-Hz
@@ -218,7 +222,7 @@ label_lon.grid(row=1, column=0, padx=10, pady=10)
 entry_lon = tk.Entry(root)
 entry_lon.grid(row=1, column=1, padx=10, pady=10)
 
-label_power = tk.Label(root, text="Nhập công suất (dB):")
+label_power = tk.Label(root, text="Nhập công suất (W):")
 label_power.grid(row=2, column=0, padx=10, pady=10)
 entry_power = tk.Entry(root)
 entry_power.grid(row=2, column=1, padx=10, pady=10)
