@@ -210,7 +210,7 @@ def plot_bit_error_rate(C_N):
 
 
 root = tk.Tk()
-root.title("Tính toán vệ tinh và truyền tín hiệu")
+root.title("Tính toán")
 
 label_lat = tk.Label(root, text="Nhập vĩ độ trạm phát:")
 label_lat.grid(row=0, column=0, padx=10, pady=10)
