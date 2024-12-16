@@ -6,11 +6,21 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 def calculate():
+    error_messages = []
     try:
         # Lấy giá trị từ các trường nhập liệu
         a = float(entry_lat.get())  # Vĩ độ
         b = float(entry_lon.get())  # Kinh độ
         P_tx = float(entry_power.get())  # Công suất (W)
+
+        if not (-90 <= a <= 90): 
+            error_messages.append("Vĩ độ phải trong khoảng từ -90 đến 90 độ.") 
+        if not (-180 <= b <= 180): 
+            error_messages.append("Kinh độ phải trong khoảng từ -180 đến 180 độ.") 
+        if P_tx <= 0: 
+            error_messages.append("Công suất phải là giá trị dương.") 
+        if error_messages: 
+            raise ValueError("\n".join(error_messages))
 
         # Hằng số
         R_E = 6378  # Bán kính Trái Đất (km)
@@ -19,7 +29,7 @@ def calculate():
         R_bit = 8e6  # Tốc độ bit (8 Mbps)
         Ha = 0.1     # Mực nước biển (km)
         H_rain = 5   # suy hao do mưa (km)
-        alpha = 3    # Hệ số nhiễu do mưa (dB/km)
+        alpha = 3    # Hệ số nhiễu do mưa (dB/km) ở VNVN
         eta = 0.6    # Hiệu suất anten
         D_tx = 13    # Đường kính anten truyền (m)
         D_rx = 4     # Đường kính anten nhận (m)
@@ -27,7 +37,7 @@ def calculate():
         L_rx = 1     # Mất mát nhận (dB)
         T = 290      # Nhiệt độ (K)
         k = 1.38e-23 # Hằng số Boltzmann (J/K)
-        M = 4        # Mô-đun (4QAM)
+        M = np.random.choice([2, 4, 8]) # Mô-đun là giá trị ngẫu nhiên
     
         # băng thông
         B = R_bit / np.log2(M)        
@@ -75,6 +85,7 @@ def calculate():
 
         # Hiển thị kết quả lên giao diện
         result_text = f"""
+        Kênh truyền M = {M} 
         Khoảng cách từ trạm Hà Nội tới vệ tinh (d) = {d:.4f} km
         Góc ngẩng (theta) = {theta:.4f} deg
         Tăng ích anten phát G_tx = {10 * np.log10(G_tx):.4f} dB
@@ -99,16 +110,18 @@ def calculate():
         plot_signal_loss(Lfs, L_tx, L_rx, Lrain, L_total)  
         plot_bit_error_rate(C_N)  
 
-    except ValueError:
-        messagebox.showerror("Lỗi", "Vui lòng nhập các giá trị hợp lệ.")
+    except ValueError as ve :
+        messagebox.showerror("Lỗi", str(ve))
 
 # Hàm vẽ đồ thị hành tinh và anten
 def plot_planet_antenna(R_E, h, theta): 
-    fig, ax = plt.subplots() 
+    fig, ax = plt.subplots() #khởi tạo biểu đồ và trục
     # Tạo dữ liệu quỹ đạo của Trái đất và vệ tinh 
-    theta_vals = np.linspace(0, 2 * np.pi, 100) 
+    theta_vals = np.linspace(0, 2 * np.pi, 100)  #0 -> 2pi
+    #tọa độ x, y của quỹ đạo trái đất
     earth_orbit_x = R_E * np.cos(theta_vals) 
     earth_orbit_y = R_E * np.sin(theta_vals) 
+    #tọa độ x, y của vệ tinh
     satellite_orbit_x = (R_E + h) * np.cos(theta_vals) 
     satellite_orbit_y = (R_E + h) * np.sin(theta_vals) 
     
@@ -118,16 +131,19 @@ def plot_planet_antenna(R_E, h, theta):
     # Vẽ góc ngẩng 
     x_angle = [R_E, (R_E + h) * np.cos(np.radians(theta))] 
     y_angle = [0, (R_E + h) * np.sin(np.radians(theta))] 
+    #x-angle, y_angle là tọa độ của đường thẳng từ trái đất đến vệ tinh -> góc ngẩng
+
     ax.plot(x_angle, y_angle, 'r', label="Góc ngẩng", linewidth=2) 
     # Thiết lập các thông số đồ thị 
     ax.set_xlabel("X (km)", fontsize=12) 
     ax.set_ylabel("Y (km)", fontsize=12) 
     ax.set_title("Anten và Góc Xoay", fontsize=14) 
-    ax.axis('equal') 
-    ax.grid(True) 
-    ax.legend(loc='best', fontsize=10) 
-    ax.tick_params(axis='both', which='major', labelsize=12) 
-    top = tk.Toplevel(root) 
+    ax.axis('equal') # tỉ lệ 2 trục = nhaunhau
+    ax.grid(True) #đồ thị có lướilưới
+    ax.legend(loc='best', fontsize=10) #Thêm chú thích với kích thước phông chữ 10 và đặt vị trí tốt nhất.
+    ax.tick_params(axis='both', which='major', labelsize=12) #Thiết lập thông số cho các vạch chia trên trục.
+
+    top = tk.Toplevel(root) #tạo cửa sổ con mới
     top.title("Hành tinh và Anten") 
     canvas = FigureCanvasTkAgg(fig, master=top) 
     canvas.draw()
@@ -135,11 +151,11 @@ def plot_planet_antenna(R_E, h, theta):
 
 # Hàm vẽ đồ thị tín hiệu và nhiễu (C/N)
 def plot_signal_noise():
-    t = np.arange(0, 1e-3, 1e-6)
-    signal = np.sin(2 * np.pi * 1e6 * t) # Tín hiệu 1 MHz
-    noise = np.random.randn(len(t)) # Nhiễu trắng Gaussian
+    t = np.arange(0, 1e-3, 1e-6)   # mảng thời gian
+    signal = np.sin(2 * np.pi * 1e6 * t) # Tín hiệu 1 MHz hình sin
+    noise = np.random.randn(len(t)) # Nhiễu trắng Gaussian cùng độ dài với tín hiệu
 
-    fig, axs = plt.subplots(2, 1, figsize=(10, 8)) 
+    fig, axs = plt.subplots(2, 1, figsize=(10, 8))    # 2 hàng 1 cộtcột
     axs[0].plot(t, signal, 'b-', linewidth=1.5) 
     axs[0].set_title('Tín hiệu', fontsize=14) 
     axs[0].set_xlabel('Thời gian (s)', fontsize=12) 
@@ -150,7 +166,7 @@ def plot_signal_noise():
     axs[1].set_xlabel('Thời gian (s)', fontsize=12) 
     axs[1].set_ylabel('Biên độ', fontsize=12) 
     axs[1].grid(True) 
-    plt.tight_layout() 
+    plt.tight_layout()  # tránh chồng lấn
     top = tk.Toplevel(root) 
     top.title("Tín hiệu và Nhiễu") 
     canvas = FigureCanvasTkAgg(fig, master=top) 
@@ -187,13 +203,13 @@ def plot_signal_loss(Lfs, L_tx, L_rx, Lrain, L_total):
 
 # Hàm vẽ đồ thị tỷ lệ lỗi bit (BER)
 def plot_bit_error_rate(C_N):
-    if C_N > 0:  # Đảm bảo rằng C_N là một giá trị hợp lệ
-        SNR_dB = np.linspace(0, 300, 100)  # Tạo một dãy SNR từ 0 đến 300 dB
+    if C_N > 0:  
+        SNR_dB = np.linspace(0, 50, 100)  # Tạo một dãy SNR từ 0 đến 550 dB với 100 giá trị
         BER = 0.5 * erfc(np.sqrt(10**(SNR_dB / 10)))  # Công thức lý thuyết cho BPSK BER
 
         fig, ax = plt.subplots(figsize=(10, 6))
 
-        ax.semilogy(SNR_dB, BER, 'b-', linewidth=2)
+        ax.semilogy(SNR_dB, BER, 'b-', linewidth=2)  #trục y logarit
         ax.set_title('Tỷ lệ lỗi bit (BER) đối với các giá trị SNR', fontsize=14)
         ax.set_xlabel('SNR (dB)', fontsize=12)
         ax.set_ylabel('Tỷ lệ lỗi bit (BER)', fontsize=12)
@@ -212,12 +228,12 @@ def plot_bit_error_rate(C_N):
 root = tk.Tk()
 root.title("Tính toán")
 
-label_lat = tk.Label(root, text="Nhập vĩ độ trạm phát:")
+label_lat = tk.Label(root, text="Nhập vĩ độ trạm phát (độ):")
 label_lat.grid(row=0, column=0, padx=10, pady=10)
 entry_lat = tk.Entry(root)
 entry_lat.grid(row=0, column=1, padx=10, pady=10)
 
-label_lon = tk.Label(root, text="Nhập kinh độ trạm phát:")
+label_lon = tk.Label(root, text="Nhập kinh độ trạm phát (độ):")
 label_lon.grid(row=1, column=0, padx=10, pady=10)
 entry_lon = tk.Entry(root)
 entry_lon.grid(row=1, column=1, padx=10, pady=10)
