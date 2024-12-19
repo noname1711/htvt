@@ -108,7 +108,8 @@ def calculate():
         plot_signal_noise()  
         plot_signal_noise_ratio(C_N, C_N0)  
         plot_signal_loss(Lfs, L_tx, L_rx, Lrain, L_total)  
-        plot_bit_error_rate(C_N)  
+        #plot_bit_error_rate(C_N)  
+        plot_combined_BER()
 
     except ValueError as ve :
         messagebox.showerror("Lỗi", str(ve))
@@ -149,29 +150,46 @@ def plot_planet_antenna(R_E, h, theta):
     canvas.draw()
     canvas.get_tk_widget().pack()
 
-# Hàm vẽ đồ thị tín hiệu và nhiễu (C/N)
+# Hàm vẽ đồ thị tín hiệu, nhiễu và kênh truyền (AWGN)
 def plot_signal_noise():
-    t = np.arange(0, 1e-3, 1e-6)   # mảng thời gian
-    signal = np.sin(2 * np.pi * 1e6 * t) # Tín hiệu 1 MHz hình sin
-    noise = np.random.randn(len(t)) # Nhiễu trắng Gaussian cùng độ dài với tín hiệu
+    t = np.arange(0, 1e-3, 1e-6)  # mảng thời gian
+    signal = np.sin(2 * np.pi * 1e6 * t)  # Tín hiệu 1 MHz hình sin
 
-    fig, axs = plt.subplots(2, 1, figsize=(10, 8))    # 2 hàng 1 cộtcột
-    axs[0].plot(t, signal, 'b-', linewidth=1.5) 
-    axs[0].set_title('Tín hiệu', fontsize=14) 
-    axs[0].set_xlabel('Thời gian (s)', fontsize=12) 
-    axs[0].set_ylabel('Biên độ', fontsize=12) 
-    axs[0].grid(True) 
-    axs[1].plot(t, noise, 'r-', linewidth=1.5) 
-    axs[1].set_title('Nhiễu', fontsize=14) 
-    axs[1].set_xlabel('Thời gian (s)', fontsize=12) 
-    axs[1].set_ylabel('Biên độ', fontsize=12) 
-    axs[1].grid(True) 
+    # Nhiễu Gaussian (AWGN)
+    noise = np.random.normal(0, 0.5, len(t))  # Nhiễu Gauss có mean = 0 và std = 0.5
+
+    # Kênh truyền (cộng nhiễu vào tín hiệu)
+    noisy_signal = signal + noise  # Tín hiệu cộng nhiễu
+
+    fig, axs = plt.subplots(3, 1, figsize=(10, 10))  # 3 hàng 1 cột
+    axs[0].plot(t, signal, 'b-', linewidth=1.5, label="Tín hiệu gốc")
+    axs[0].set_title('Tín hiệu', fontsize=14)
+    axs[0].set_xlabel('Thời gian (s)', fontsize=12)
+    axs[0].set_ylabel('Biên độ', fontsize=12)
+    axs[0].grid(True)
+    axs[0].legend()
+
+    axs[1].plot(t, noise, 'r-', linewidth=1.5, label="Nhiễu Gauss")
+    axs[1].set_title('Nhiễu Gaussian', fontsize=14)
+    axs[1].set_xlabel('Thời gian (s)', fontsize=12)
+    axs[1].set_ylabel('Biên độ', fontsize=12)
+    axs[1].grid(True)
+    axs[1].legend()
+
+    axs[2].plot(t, noisy_signal, 'g-', linewidth=1.5, label="Tín hiệu + Nhiễu")
+    axs[2].set_title('Tín hiệu sau khi truyền qua kênh (AWGN)', fontsize=14)
+    axs[2].set_xlabel('Thời gian (s)', fontsize=12)
+    axs[2].set_ylabel('Biên độ', fontsize=12)
+    axs[2].grid(True)
+    axs[2].legend()
+
     plt.tight_layout()  # tránh chồng lấn
-    top = tk.Toplevel(root) 
-    top.title("Tín hiệu và Nhiễu") 
-    canvas = FigureCanvasTkAgg(fig, master=top) 
-    canvas.draw() 
+    top = tk.Toplevel(root)
+    top.title("Tín hiệu, Nhiễu và Kênh Truyền")
+    canvas = FigureCanvasTkAgg(fig, master=top)
+    canvas.draw()
     canvas.get_tk_widget().pack()
+
 
 # Hàm vẽ đồ thị tỉ lệ tín hiệu/nhiễu (C/N0)
 def plot_signal_noise_ratio(C_N, C_N0):
@@ -223,7 +241,50 @@ def plot_bit_error_rate(C_N):
     else:
         messagebox.showwarning("Cảnh báo", "C_N phải là một giá trị hợp lệ và dương.")
 
-
+# Hàm vẽ đồ thị tỷ lệ lỗi bit (BER) lý thuyết
+def plot_bit_error_rate_theory():
+    SNR_dB = np.linspace(0, 20, 50)  # Tạo một dãy SNR từ 0 đến 20 dB
+    BER_theory = 0.5 * erfc(np.sqrt(10**(SNR_dB / 10)))  # Công thức lý thuyết cho BPSK BER
+    return SNR_dB, BER_theory
+# Hàm mô phỏng kênh truyền với nhiễu Gaussian và tính BER thực tế
+def simulate_BER_with_noise(SNR_dB, num_bits=10000):
+    noise_std = np.sqrt(1 / (2 * 10**(SNR_dB / 10)))  # Độ lệch chuẩn của nhiễu Gaussian
+    # Sinh ra tín hiệu BPSK (0 -> -1, 1 -> 1)
+    transmitted_bits = np.random.randint(0, 2, num_bits) * 2 - 1  # Tạo mảng bit (-1 và 1)
+    # Thêm nhiễu Gaussian vào tín hiệu
+    noise = np.random.normal(0, noise_std, num_bits)
+    received_signal = transmitted_bits + noise  # Tín hiệu nhận được sau khi thêm nhiễu
+    # Phục hồi bit từ tín hiệu nhận được
+    received_bits = (received_signal >= 0).astype(int)  # Bit 1 nếu tín hiệu >= 0, ngược lại bit 0
+    # Tính số bit bị lỗi
+    errors = np.sum(transmitted_bits != (received_bits * 2 - 1))  # Số lỗi bit
+    BER = errors / num_bits  # Tỷ lệ lỗi bit thực tế
+    return BER
+# Hàm vẽ đồ thị BER lý thuyết và thực tế
+def plot_combined_BER():
+    SNR_dB = np.linspace(0, 20, 100)    # Tạo một dãy SNR từ 0 đến 20 dB với 100 giá trị
+    # Tính toán BER lý thuyết
+    SNR_theory, BER_theory = plot_bit_error_rate_theory()
+    # Tính toán BER thực tế cho từng giá trị SNR
+    BER_simulated = [simulate_BER_with_noise(snr) for snr in SNR_dB]
+    # Vẽ đồ thị
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # Vẽ đồ thị lý thuyết
+    ax.semilogy(SNR_theory, BER_theory, 'b-', linewidth=2, label="BER lý thuyết")
+    # Vẽ đồ thị thực tế
+    ax.semilogy(SNR_dB, BER_simulated, 'r-', linewidth=2, label="BER thực tế")
+    # Tùy chỉnh đồ thị
+    ax.set_title('Tỷ lệ lỗi bit (BER) lý thuyết và thực tế theo SNR', fontsize=14)
+    ax.set_xlabel('SNR (dB)', fontsize=12)
+    ax.set_ylabel('Tỷ lệ lỗi bit (BER)', fontsize=12)
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+    ax.legend()
+    # Hiển thị đồ thị trong cửa sổ Tkinter
+    top = tk.Toplevel(root)
+    top.title("Bit Error Rate (BER) - Lý thuyết và Thực tế")
+    canvas = FigureCanvasTkAgg(fig, master=top)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
 
 root = tk.Tk()
 root.title("Tính toán")
